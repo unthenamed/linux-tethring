@@ -1,0 +1,53 @@
+#!/bin/bash
+
+pkg="dnsmasq  hostapd"
+
+which $pkg > /dev/null 2>&1
+if [ $? == 0 ]
+	then
+	 echo "$pkg is already installed. "
+	else
+	 read -p "$pkg is not installed. Answer yes/no if want installation_ " request
+		if  [ $request == "yes" ]
+		then
+		 sudo apt-get install $pkg -y
+		fi
+fi
+
+read -p "interface Hostpot" hospot
+read -p "interface NAT" nat
+
+# Restart service
+sudo service hostapd stop
+sudo service dnsmasq stop
+sudo update-rc.d hostapd disable
+sudo update-rc.d dnsmasq disable
+
+# Configure IP address for WLAN
+sudo ifconfig $hospot 192.168.0.1
+
+# Start DHCP/DNS server
+sudo service dnsmasq restart
+
+# Enable routing
+sudo sysctl net.ipv4.ip_forward=1
+
+# Enable NAT
+sudo iptables -t nat -A POSTROUTING -o $nat -j MASQUERADE
+
+# Run access point daemon
+sudo hostapd /etc/hostapd.conf
+
+# Stop
+# Disable NAT
+sudo iptables -D POSTROUTING -t nat -o $nat -j MASQUERADE
+
+# Disable routing
+sudo sysctl net.ipv4.ip_forward=0
+
+# Disable DHCP/DNS server
+sudo service hostapd stop
+sudo service dnsmasq stop
+sudo update-rc.d hostapd disable
+sudo update-rc.d dnsmasq disable
+
